@@ -61,11 +61,11 @@ source ~/.cargo/env
 
 git clone [https://github.com/arnaudflourac-afk/IntelliProbe.git](https://github.com/arnaudflourac-afk/IntelliProbe.git)
 
-cd intelliprobe
+cd IntelliProbe
 
 cargo build --release --features web
 
-sudo cp target/release/intelliprobe /usr/local/bin/
+./target/release/intelli_probe --dashboard
 
 🍎 macOS
 
