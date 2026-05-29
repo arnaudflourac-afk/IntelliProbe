@@ -137,4 +137,4 @@ Ce projet est sous licence Apache License 2.0.
 
 Remerciements : sysinfo, axum, clap, tokio, serde, rayon.
 
-Développé avec ❤️ par Arnaud Flourac
+Développé avec par Arnaud Flourac
