@@ -77,7 +77,7 @@ brew install pkg-config openssl git rust
 
 git clone [https://github.com/arnaudflourac-afk/IntelliProbe.git](https://github.com/arnaudflourac-afk/IntelliProbe.git)
 
-cd intelliprobe
+cd IntelliProbe
 
 cargo build --release --features web
 
