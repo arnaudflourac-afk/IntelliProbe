@@ -91,7 +91,7 @@ Installer Visual Studio Build Tools (avec "Desktop development with C++")
 
 git clone https://github.com/arnaudflourac-afk/IntelliProbe.git
 
-cd intelliprobe
+cd IntelliProbe
 
 cargo build --release --features web
 
@@ -137,4 +137,4 @@ Ce projet est sous licence Apache License 2.0.
 
 Remerciements : sysinfo, axum, clap, tokio, serde, rayon.
 
-Développé avec par Arnaud Flourac
+Développé par Arnaud Flourac
