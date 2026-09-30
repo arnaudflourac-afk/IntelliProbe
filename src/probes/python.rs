@@ -12,6 +12,12 @@ import sys, json, os, importlib.util
 out = {"version": sys.version.split()[0], "executable": sys.executable, "packages": [], "modules": []}
 venv = sys.prefix if sys.prefix != getattr(sys, "base_prefix", sys.prefix) else None
 out["venv"] = venv or os.environ.get("CONDA_DEFAULT_ENV")
+try:
+    import sysconfig
+    out["externally_managed"] = venv is None and os.path.exists(os.path.join(sysconfig.get_path("stdlib"), "EXTERNALLY-MANAGED"))
+except Exception:
+    out["externally_managed"] = False
+out["venv_available"] = importlib.util.find_spec("ensurepip") is not None
 pkgs = {}
 try:
     from importlib import metadata
@@ -299,6 +305,10 @@ struct Inventory {
     venv: Option<String>,
     packages: Vec<Package>,
     modules: Vec<String>,
+    #[serde(default)]
+    externally_managed: bool,
+    #[serde(default)]
+    venv_available: bool,
 }
 
 #[derive(Deserialize, Default)]
@@ -321,7 +331,15 @@ pub fn probe(test_frameworks: bool, log: &dyn Fn(&str)) -> Option<Python> {
     let out = run_with(&exe, &["-c", &script], Duration::from_secs(60), &[], Some(&workdir))?;
     let inv: Inventory = serde_json::from_str(out.stdout.lines().last()?).ok()?;
 
-    let mut py = Python { executable: inv.executable, version: inv.version, virtualenv: inv.venv, packages: inv.packages, frameworks: Vec::new() };
+    let mut py = Python {
+        executable: inv.executable,
+        version: inv.version,
+        virtualenv: inv.venv,
+        packages: inv.packages,
+        frameworks: Vec::new(),
+        externally_managed: inv.externally_managed,
+        venv_available: inv.venv_available,
+    };
     let norm = |s: &str| s.to_lowercase().replace('_', "-");
     let dists: HashSet<String> = py.packages.iter().map(|p| norm(&p.name)).collect();
     let modules: HashSet<String> = inv.modules.into_iter().collect();

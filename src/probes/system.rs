@@ -112,6 +112,8 @@ pub fn probe_os() -> Os {
             None => name,
         }
     });
+    os.user = std::env::var("USER").ok().or_else(|| run_ok("id", &["-un"]).map(|s| s.trim().to_string()));
+    os.user_groups = run_ok("id", &["-Gn"]).map(|s| s.split_whitespace().map(String::from).collect()).unwrap_or_default();
     if let Some((mgr, count)) = count_packages() {
         os.package_manager = Some(mgr.to_string());
         os.installed_packages = Some(count);

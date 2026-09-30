@@ -7,6 +7,7 @@
 pub mod analysis;
 pub mod output;
 pub mod probes;
+pub mod recommend;
 pub mod report;
 pub mod util;
 
@@ -119,6 +120,7 @@ pub fn collect(opts: &Options) -> Report {
     }
 
     analysis::analyze(&mut r);
+    r.recommendations = recommend::recommend(&r);
 
     r.meta.tool_version = env!("CARGO_PKG_VERSION").to_string();
     r.meta.generated_at = util::now_iso8601();

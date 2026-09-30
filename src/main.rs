@@ -53,7 +53,10 @@ fn main() -> Result<()> {
 
     let report: Report = if let Some(path) = &cli.input {
         let data = fs::read_to_string(path).with_context(|| format!("lecture de {}", path.display()))?;
-        serde_json::from_str(&data).with_context(|| format!("{} n'est pas un rapport IntelliProbe valide", path.display()))?
+        let mut r: Report = serde_json::from_str(&data).with_context(|| format!("{} n'est pas un rapport IntelliProbe valide", path.display()))?;
+        // Le guide ne dépend que du rapport : on le régénère (règles à jour, anciens rapports).
+        r.recommendations = intelliprobe::recommend::recommend(&r);
+        r
     } else {
         if !cli.json {
             print_banner();

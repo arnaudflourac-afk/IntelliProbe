@@ -23,6 +23,24 @@ pub struct Report {
     pub ai: Ai,
     pub bench: Option<Bench>,
     pub analysis: Analysis,
+    /// Guide de développement déduit des données mesurées.
+    pub recommendations: Vec<Recommendation>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Recommendation {
+    /// Workflow, IA, LLM, Vidéo, E/S, Python, Conteneurs, Déploiement…
+    pub domain: String,
+    /// `essentiel`, `recommandé`, `optionnel`.
+    pub priority: String,
+    pub title: String,
+    /// Pourquoi, avec les valeurs mesurées qui justifient la recommandation.
+    pub rationale: String,
+    /// Actions concrètes (commandes ou étapes).
+    pub steps: Vec<String>,
+    /// Pièges à éviter sur cette machine.
+    pub avoid: Vec<String>,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -87,6 +105,9 @@ pub struct Os {
     pub shell: Option<String>,
     pub package_manager: Option<String>,
     pub installed_packages: Option<usize>,
+    pub user: Option<String>,
+    /// Groupes de l'utilisateur courant (droits sur gpio, i2c, video, dialout, docker…).
+    pub user_groups: Vec<String>,
 }
 
 // ---------------------------------------------------------------- CPU / mémoire / stockage
@@ -333,6 +354,20 @@ pub struct Interfaces {
     /// Périphériques déclarés dans le device-tree (activés / désactivés).
     pub dt_peripherals: Vec<DtPeripheral>,
     pub sensors: Vec<Sensor>,
+    /// Droits réels de l'utilisateur sur les nœuds matériels.
+    pub access: Vec<DevAccess>,
+}
+
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DevAccess {
+    /// GPIO, I2C, SPI, UART, Vidéo, NPU, GPU…
+    pub kind: String,
+    pub node: String,
+    /// Groupe propriétaire du nœud (ex. `gpio`, `i2c`, `dialout`).
+    pub group: Option<String>,
+    /// L'utilisateur courant peut-il l'ouvrir en lecture/écriture ?
+    pub writable: bool,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
@@ -430,6 +465,10 @@ pub struct Python {
     pub virtualenv: Option<String>,
     pub packages: Vec<Package>,
     pub frameworks: Vec<Framework>,
+    /// PEP 668 : `pip install` hors venv est bloqué par la distribution.
+    pub externally_managed: bool,
+    /// Le module venv (ensurepip) est installé.
+    pub venv_available: bool,
 }
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]

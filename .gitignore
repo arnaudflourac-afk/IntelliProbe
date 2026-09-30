@@ -11,8 +11,8 @@
 .idea
 *.code-workspace
 .vscode
-rapport-intelliprobe/
-output/
+/rapport-intelliprobe/
+/output/
 Dockerfile
 *.pdf
 *.html

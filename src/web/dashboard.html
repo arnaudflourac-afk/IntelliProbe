@@ -58,6 +58,21 @@
   .empty { color: var(--muted); font-style: italic; margin: 0 0 16px; }
   .note { color: var(--muted); font-size: 12.5px; margin: -8px 0 16px; }
   a.btn, button.btn { display: inline-block; background: var(--accent); color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; text-decoration: none; }
+  .rec { background: var(--panel); border: 1px solid var(--border); border-left-width: 4px; border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .rec.essentiel { border-left-color: var(--bad); } .rec.recommandé { border-left-color: var(--warn); } .rec.optionnel { border-left-color: var(--border); }
+  .rec .head { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 4px; }
+  .rec .title { font-weight: 650; font-size: 15px; }
+  .rec .why { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+  .rec ol { margin: 0; padding-left: 20px; }
+  .rec li { margin: 4px 0; }
+  .step { display: flex; gap: 8px; align-items: flex-start; }
+  .step code { flex: 1; white-space: pre-wrap; word-break: break-word; background: var(--panel2); border: 1px solid var(--border); border-radius: 6px; padding: 4px 8px; }
+  .copy { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: 6px; padding: 2px 8px; cursor: pointer; font: inherit; font-size: 12px; }
+  .avoid { margin-top: 8px; font-size: 13px; }
+  .avoid div { color: var(--bad); }
+  .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filters button { background: var(--panel); border: 1px solid var(--border); color: var(--text); border-radius: 999px; padding: 4px 12px; cursor: pointer; font: inherit; font-size: 13px; }
+  .filters button.on { border-color: var(--accent); color: var(--accent); }
   pre { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow: auto; max-height: 70vh; font-size: 12px; }
 </style>
 </head>
@@ -91,6 +106,29 @@ const yes = (b) => pill(b ? "oui" : "non", b ? "ok" : "bad");
 const chips = (list) => (list.length ? `<div class="chips">${list.map((x) => `<span class="chip">${esc(x)}</span>`).join("")}</div>` : `<p class="empty">Aucun.</p>`);
 const card = (title, big, small = "") => `<div class="card"><h3>${esc(title)}</h3><div class="big">${esc(or(big))}</div>${small ? `<div class="small">${esc(small)}</div>` : ""}</div>`;
 const socName = (c) => { if (!c) return null; const [v, chip] = c.includes(",") ? c.split(",") : ["", c]; return (v ? v.charAt(0).toUpperCase() + v.slice(1) + " " : "") + chip.toUpperCase(); };
+
+// Une étape ressemble à une commande si elle commence par un outil courant.
+const isCmd = (t) => /^(sudo |pip|python|uv |curl |docker |cargo |rustup |cmake |gst-launch|ffmpeg |echo |printf |scp |i2cdetect |ollama |git |\/)/.test(t) || /^\S+\/python3? -m /.test(t);
+
+function guide(r) {
+  const recs = arr(r.recommendations);
+  if (!recs.length) return `<p class="empty">Aucune recommandation (rapport d'une ancienne version : relancer intelliprobe).</p>`;
+  const count = (p) => recs.filter((x) => x.priority === p).length;
+  let s = `<div class="grid">${card("Essentiel", count("essentiel"), "à faire avant de commencer")}${card("Recommandé", count("recommandé"), "évite des problèmes plus tard")}${card("Optionnel", count("optionnel"), "pour aller plus loin")}</div>`;
+  s += `<div class="filters" id="rec-filters">${["tout", "essentiel", "recommandé", "optionnel"].map((p, i) => `<button data-p="${p}" class="${i === 0 ? "on" : ""}">${esc(p)}</button>`).join("")}</div>`;
+  s += recs.map((x) => {
+    const kind = x.priority === "essentiel" ? "bad" : x.priority === "recommandé" ? "warn" : "info";
+    const steps = arr(x.steps).map((st) => {
+      const [cmd, comment] = st.includes("   # ") ? st.split("   # ") : [st, ""];
+      return isCmd(cmd)
+        ? `<li><div class="step"><code>${esc(cmd)}</code><button class="copy" data-copy="${esc(cmd)}">copier</button></div>${comment ? `<div class="muted small">${esc(comment)}</div>` : ""}</li>`
+        : `<li>${esc(st)}</li>`;
+    }).join("");
+    const avoid = arr(x.avoid).map((a) => `<div>✘ ${esc(a)}</div>`).join("");
+    return `<div class="rec ${esc(x.priority)}" data-p="${esc(x.priority)}"><div class="head"><span class="pill ${kind}">${esc(x.priority)}</span><span class="pill info">${esc(x.domain)}</span><span class="title">${esc(x.title)}</span></div><div class="why">${esc(x.rationale)}</div>${steps ? `<ol>${steps}</ol>` : ""}${avoid ? `<div class="avoid"><b>À éviter</b>${avoid}</div>` : ""}</div>`;
+  }).join("");
+  return s;
+}
 
 function overview(r) {
   const b = r.bench;
@@ -182,6 +220,8 @@ function interfaces(r) {
     ...arr(i.bluetooth).map((b) => ["Bluetooth", b]),
   ];
   let s = `<h2>Bus et E/S</h2>` + table(["Type", "Détail"], rows, { empty: "Aucun bus GPIO/I2C/SPI/UART accessible." });
+  s += `<h2>Droits d'accès de ${esc(or(r.os?.user, "l'utilisateur"))}</h2><p class="note">Groupes : ${esc(arr(r.os?.user_groups).join(", ") || "—")}</p>` +
+    table(["Type", "Nœud", "Groupe propriétaire", "Accès lecture/écriture"], arr(i.access).map((a) => [a.kind, a.node, a.group, yes(a.writable)]), { empty: "Aucun nœud matériel à vérifier." });
   if (arr(i.dt_peripherals).length) s += `<h2>Contrôleurs du device-tree</h2><p class="note">Un contrôleur désactivé est présent dans le SoC et généralement activable par overlay.</p>` + table(["Contrôleur", "Activés", "Désactivés"], i.dt_peripherals.map((p) => [p.kind, p.enabled, p.disabled]));
   s += `<h2>Réseau</h2>` + table(["Interface", "Type", "État", "Vitesse", "Driver"], arr(i.network).map((n) => [n.name, n.kind, n.state, n.speed_mbps ? n.speed_mbps + " Mb/s" : null, n.driver]));
   s += `<h2>USB</h2>` + table(["ID", "Fabricant", "Produit", "Vitesse"], arr(i.usb_devices).filter((u) => !u.is_hub).map((u) => [u.id, u.manufacturer, u.product, u.speed_mbps ? u.speed_mbps + " Mb/s" : null]), { empty: "Aucun périphérique USB (hors hubs)." });
@@ -249,7 +289,7 @@ function raw(r) {
   return `<p><button class="btn" id="dl">Télécharger le JSON</button></p><h2>Durée des sondes</h2>` + table(["Sonde", "Durée"], timings) + `<h2>JSON</h2><pre>${esc(JSON.stringify(r, null, 2))}</pre>`;
 }
 
-const TABS = [["Vue d'ensemble", overview], ["Matériel", hardware], ["Vidéo", video], ["Interfaces", interfaces], ["Développement", dev], ["Python", python], ["Librairies", libraries], ["Mesures & LLM", measures], ["Données brutes", raw]];
+const TABS = [["Guide", guide], ["Vue d'ensemble", overview], ["Matériel", hardware], ["Vidéo", video], ["Interfaces", interfaces], ["Développement", dev], ["Python", python], ["Librairies", libraries], ["Mesures & LLM", measures], ["Données brutes", raw]];
 
 function boot(r) {
   document.getElementById("host").textContent = or(r.os?.hostname, "machine");
@@ -276,6 +316,14 @@ function boot(r) {
   document.querySelectorAll("input[data-filter]").forEach((inp) => inp.addEventListener("input", () => {
     const q = inp.value.toLowerCase();
     document.querySelectorAll(`#${inp.dataset.filter} tbody tr`).forEach((tr) => { tr.style.display = tr.textContent.toLowerCase().includes(q) ? "" : "none"; });
+  }));
+  document.querySelectorAll("#rec-filters button").forEach((b) => b.addEventListener("click", () => {
+    document.querySelectorAll("#rec-filters button").forEach((x) => x.classList.toggle("on", x === b));
+    document.querySelectorAll(".rec").forEach((el) => { el.style.display = b.dataset.p === "tout" || el.dataset.p === b.dataset.p ? "" : "none"; });
+  }));
+  document.querySelectorAll("button.copy").forEach((b) => b.addEventListener("click", () => {
+    const done = () => { b.textContent = "copié"; setTimeout(() => (b.textContent = "copier"), 1200); };
+    if (navigator.clipboard) navigator.clipboard.writeText(b.dataset.copy).then(done, () => {});
   }));
   const dl = document.getElementById("dl");
   if (dl) dl.onclick = () => {

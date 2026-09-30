@@ -2,7 +2,7 @@
 //! Bluetooth, watchdog, et périphériques déclarés dans le device-tree.
 
 use super::dt;
-use crate::report::{DtPeripheral, GpioChip, Interfaces, NamedDev, NetIf, PciDevice, UsbDevice};
+use crate::report::{DevAccess, DtPeripheral, GpioChip, Interfaces, NamedDev, NetIf, PciDevice, UsbDevice};
 use crate::util::*;
 use regex::Regex;
 use std::collections::{BTreeMap, HashMap};
@@ -40,7 +40,70 @@ pub fn probe() -> Interfaces {
     if dt::present() {
         i.dt_peripherals = dt_peripherals();
     }
+    i.access = node_access(&i);
     i
+}
+
+// ---------------------------------------------------------------- Droits d'accès
+
+/// Pour un nœud représentatif de chaque type : groupe propriétaire et droit
+/// réel de l'utilisateur courant (c'est ce qui bloque le plus souvent au début).
+fn node_access(i: &Interfaces) -> Vec<DevAccess> {
+    let first = |dir: &str, prefix: &str| list_dir_prefix(dir, prefix).into_iter().next().map(|n| format!("{}/{}", dir, n));
+    let candidates: Vec<(&str, Option<String>)> = vec![
+        ("GPIO", first("/dev", "gpiochip")),
+        ("I2C", first("/dev", "i2c-")),
+        ("SPI", first("/dev", "spidev")),
+        ("UART", i.uarts.iter().find(|u| !u.dev.contains("ttyS")).or(i.uarts.first()).map(|u| u.dev.clone())),
+        ("Vidéo", first("/dev", "video")),
+        ("GPU (rendu)", first("/dev/dri", "renderD")),
+        ("NPU", first("/dev/accel", "accel").or_else(|| first("/dev", "rknpu")).or_else(|| first("/dev", "galcore")).or_else(|| first("/dev", "hailo")).or_else(|| first("/dev", "apex_"))),
+        ("GPU Mali", first("/dev", "mali")),
+    ];
+    let groups = group_names();
+    candidates
+        .into_iter()
+        .filter_map(|(kind, node)| {
+            let node = node?;
+            Some(DevAccess { kind: kind.into(), group: node_group(&node, &groups), writable: can_rw(&node), node })
+        })
+        .collect()
+}
+
+fn group_names() -> HashMap<u32, String> {
+    fs::read_to_string("/etc/group")
+        .map(|t| {
+            t.lines()
+                .filter_map(|l| {
+                    let f: Vec<&str> = l.split(':').collect();
+                    Some((f.get(2)?.parse().ok()?, f[0].to_string()))
+                })
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+#[cfg(unix)]
+fn node_group(path: &str, groups: &HashMap<u32, String>) -> Option<String> {
+    use std::os::unix::fs::MetadataExt;
+    let gid = fs::metadata(path).ok()?.gid();
+    Some(groups.get(&gid).cloned().unwrap_or_else(|| gid.to_string()))
+}
+
+#[cfg(not(unix))]
+fn node_group(_path: &str, _groups: &HashMap<u32, String>) -> Option<String> {
+    None
+}
+
+#[cfg(unix)]
+fn can_rw(path: &str) -> bool {
+    let Ok(c) = std::ffi::CString::new(path) else { return false };
+    unsafe { libc::access(c.as_ptr(), libc::R_OK | libc::W_OK) == 0 }
+}
+
+#[cfg(not(unix))]
+fn can_rw(_path: &str) -> bool {
+    false
 }
 
 // ---------------------------------------------------------------- GPIO
