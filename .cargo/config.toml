@@ -1,0 +1,12 @@
+# Compilation croisée depuis un PC x86 vers une carte ARM 64 bits :
+#   sudo apt install gcc-aarch64-linux-gnu
+#   rustup target add aarch64-unknown-linux-gnu
+#   cargo build --release --target aarch64-unknown-linux-gnu
+[target.aarch64-unknown-linux-gnu]
+linker = "aarch64-linux-gnu-gcc"
+
+[target.armv7-unknown-linux-gnueabihf]
+linker = "arm-linux-gnueabihf-gcc"
+
+[target.riscv64gc-unknown-linux-gnu]
+linker = "riscv64-linux-gnu-gcc"
